@@ -27,7 +27,7 @@ library:
   source-dirs: src
 
 executables:
-  AdventOfCode-exe:
+  1-exe:
     main:                1.hs
     source-dirs:         app
     ghc-options:
