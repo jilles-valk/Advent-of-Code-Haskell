@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - safe
+- split
 
 library:
   source-dirs: src
@@ -29,6 +30,15 @@ library:
 executables:
   1-exe:
     main:                1.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
+  2-exe:
+    main:                2.hs
     source-dirs:         app
     ghc-options:
     - -threaded

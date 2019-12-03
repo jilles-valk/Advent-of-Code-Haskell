@@ -3,7 +3,7 @@ import Safe
 
 main :: IO ()
 main = do
-    handle <- openFile "data/input.txt" ReadMode
+    handle <- openFile "data/input1.txt" ReadMode
     calcFuel handle 0
     hClose handle
 
