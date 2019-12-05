@@ -5,10 +5,18 @@ main :: IO ()
 main = do 
     handle <- openFile "data/input2.txt" ReadMode
     contents <- hGetContents handle
-    let temp = map read $ splitOn "," contents :: [Int]
-        input = replaceN (replaceN temp 1 12) 2 2
-    putStrLn $ "The first value is: " ++ show (compute input 0)
+    let input = map read $ splitOn "," contents :: [Int]
+    putStrLn $ "The output for first value 19690720 is: " 
+        ++ show (computeNounVerb input 0 0 19690720)
 
+computeNounVerb :: [Int] -> Int -> Int -> Int -> Int
+computeNounVerb input noun verb requiredAtZero
+    | noun == 100 && verb == 100 = -1
+    | result == requiredAtZero = 100*noun + verb
+    | verb == 100 = computeNounVerb input (noun + 1) 0 requiredAtZero
+    | otherwise = computeNounVerb input noun (verb + 1) requiredAtZero
+    where 
+        result = compute (replaceN (replaceN input 1 noun) 2 verb) 0
 
 compute :: [Int] -> Int -> Int
 compute input index
