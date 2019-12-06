@@ -64,6 +64,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - AdventOfCode
+  5-exe:
+    main:                5.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
 
 tests:
   AdventOfCode-test:
