@@ -57,7 +57,6 @@ takeWithMode :: [Int] -> Int -> Int -> Int
 takeWithMode program index paraMode 
     | paraMode == 0 = program !! index
     | paraMode == 1 = index
-    -- | otherwise = -1
 
 replaceN :: [Int] -> Int -> Int -> [Int]
 replaceN (x:xs) n newVal
