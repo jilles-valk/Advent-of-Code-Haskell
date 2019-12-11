@@ -126,7 +126,8 @@ compute program index input output
                         endIndex input output
     | opcode == 2 = compute (replaceN program (instructions !! 3) multiply) 
                         endIndex input output
-    | opcode == 3 = compute (replaceN program (instructions !! 1) (head input)) 
+    | opcode == 3 = if null input then (minBound :: Int):index:output
+                    else compute (replaceN program (instructions !! 1) (head input)) 
                         endIndex (tail input) output
     | opcode == 4 = compute program endIndex input 
                         ((takeWithMode program (instructions !! 1) paraOneMode):output)
