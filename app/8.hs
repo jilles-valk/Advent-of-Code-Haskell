@@ -1,5 +1,6 @@
 import System.IO
 import Data.List.Split
+import Data.Foldable
 
 main :: IO ()
 main = do 
@@ -10,8 +11,30 @@ main = do
         imgLayers = map (chunksOf imgWidth) $ chunksOf (imgWidth*imgHeight) contents 
         fzLayer = fewestZeroLayers imgLayers [] (maxBound :: Int)
         result = resultLayer fzLayer
+        image = makeImage imgLayers
     putStrLn $ "The number of 1's times the number of 2's in the layer with the lowest number of 0's is: " 
         ++ show result
+    putStrLn "The image:"
+    printImage image
+
+printImage :: [[Char]] -> IO ()
+printImage img = traverse_ (\arr -> putStrLn 
+    (map (\pixel -> if pixel == '1' then '#' else ' ') arr)) img
+
+makeImage :: [[[Char]]] -> [[Char]]
+makeImage layers = foldl (\accImage layer -> addLayer accImage layer) [[]] layers
+
+addLayer :: [[Char]] -> [[Char]] -> [[Char]]
+addLayer [[]] layer = layer
+addLayer oldImage layer = zipWith addRow oldImage layer
+
+addRow :: [Char] -> [Char] -> [Char]
+addRow rowOne rowTwo = zipWith addPixel rowOne rowTwo
+
+addPixel :: Char -> Char -> Char
+addPixel pixelB pixelA
+    | pixelB == '2' = pixelA
+    | otherwise = pixelB
 
 fewestZeroLayers :: [[String]] -> [[Char]] -> Int -> [[Char]]
 fewestZeroLayers (thisLayer:otherLayers) layer numZero
