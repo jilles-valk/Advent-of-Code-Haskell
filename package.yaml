@@ -92,6 +92,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - AdventOfCode
+  8-exe:
+    main:                8.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
 
 tests:
   AdventOfCode-test:
