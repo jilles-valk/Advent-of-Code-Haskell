@@ -22,7 +22,7 @@ printImage img = traverse_ (\arr -> putStrLn
     (map (\pixel -> if pixel == '1' then '#' else ' ') arr)) img
 
 makeImage :: [[[Char]]] -> [[Char]]
-makeImage layers = foldl (\accImage layer -> addLayer accImage layer) [[]] layers
+makeImage layers = foldl addLayer [[]] layers
 
 addLayer :: [[Char]] -> [[Char]] -> [[Char]]
 addLayer [[]] layer = layer

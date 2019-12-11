@@ -101,6 +101,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - AdventOfCode
+  9-exe:
+    main:                9.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
 
 tests:
   AdventOfCode-test:
