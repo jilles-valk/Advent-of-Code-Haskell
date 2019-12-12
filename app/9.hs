@@ -6,29 +6,29 @@ main = do
     handle <- openFile "data/input9.txt" ReadMode
     contents <- hGetContents handle
     let program = map read $ splitOn "," contents :: [Int]
-        output = reverse $ compute (program ++ [0,0..]) 0 0 [1] []
+        output = reverse $ compute (program ++ [0,0..]) 0 0 [2] []
     putStrLn $ "The output is: " 
         ++ show output
 
 compute :: [Int] -> Int -> Int -> [Int] -> [Int] -> [Int]
 compute program index relBIndex input output
     | opcode == 99 = output
-    | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) add relBIndex paraThreeMode) 
-                        endIndex relBIndex input output
-    | opcode == 2 = compute (replaceNWithMode program (instructions !! 3) multiply relBIndex paraThreeMode) 
-                        endIndex relBIndex input output
-    | opcode == 3 = compute (replaceNWithMode program (instructions !! 1) (head input) relBIndex paraOneMode) 
-                        endIndex relBIndex (tail input) output
-    | opcode == 4 = compute program endIndex relBIndex input 
-                        ((takeWithMode program (instructions !! 1) relBIndex paraOneMode):output)
+    | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) 
+                        add relBIndex paraThreeMode) endIndex relBIndex input output
+    | opcode == 2 = compute (replaceNWithMode program (instructions !! 3) 
+                        multiply relBIndex paraThreeMode) endIndex relBIndex input output
+    | opcode == 3 = compute (replaceNWithMode program (instructions !! 1) (head input) 
+                        relBIndex paraOneMode) endIndex relBIndex (tail input) output
+    | opcode == 4 = compute program endIndex relBIndex input ((takeWithMode program 
+                        (instructions !! 1) relBIndex paraOneMode):output)
     | opcode == 5 = if (jumpVal /= 0) 
                         then compute program jumpToIndex relBIndex input output
                         else compute program endIndex relBIndex input output
     | opcode == 6 = if (jumpVal  == 0) 
                         then compute program jumpToIndex  relBIndex input output
                         else compute program endIndex relBIndex input output
-    | opcode == 7 = compute (replaceNWithMode program (instructions !!3) lessThan relBIndex paraThreeMode) 
-                        endIndex relBIndex input output
+    | opcode == 7 = compute (replaceNWithMode program (instructions !!3) lessThan 
+                        relBIndex paraThreeMode) endIndex relBIndex input output
     | opcode == 8 = compute (replaceNWithMode program (instructions !!3) equals relBIndex paraThreeMode) 
                         endIndex relBIndex input output
     | opcode == 9 = compute program endIndex (relBIndex + 
