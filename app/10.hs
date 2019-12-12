@@ -12,16 +12,29 @@ main = do
                     mapAccumL (\y row -> (y + 1, snd (mapAccumL 
                     (\x c -> (x + 1, makeCoordinate x y c)) 0 row))) 0 rawMap
         (numAstroids, bestStation) = findBestMonitoringStation astMap astMap (-1, -1) (-1)
+        destroyedAst = reverse $ searchAndDestroy astMap [] bestStation
+        twoHundredth = destroyedAst !! 199
     putStrLn "The input map is: "
     traverse putStrLn rawMap
     putStrLn $ "The best station is at: " ++ show bestStation ++ " with " 
-        ++ show numAstroids ++ " astroids visible."
+        ++ show numAstroids ++ " astroids visible." 
+    putStrLn $ "Output for 200th destroyed astroid from best station is: " 
+        ++ show ((fst twoHundredth)*100 + (snd twoHundredth))
     hClose handle
 
 makeCoordinate :: Int -> Int -> Char -> Maybe (Int, Int)
 makeCoordinate x y c
     | c == '#' = Just (x,y)
     | otherwise = Nothing
+
+searchAndDestroy :: [(Int, Int)] -> [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
+searchAndDestroy allAstroids destroyedAst monStat
+    | null visibleAstroids = destroyedAst
+    | otherwise = searchAndDestroy (allAstroids \\ sortedVisAst) 
+        (sortedVisAst ++ destroyedAst) monStat
+    where
+        visibleAstroids = findDetectableAstroids allAstroids allAstroids monStat []
+        sortedVisAst = sortOn (\ast -> getAngleToAst monStat ast) visibleAstroids
 
 findBestMonitoringStation :: [(Int, Int)] -> [(Int, Int)] -> (Int, Int) -> Int -> (Int, (Int, Int))
 findBestMonitoringStation _ [] bestStat numAst = (numAst, bestStat)
@@ -31,14 +44,14 @@ findBestMonitoringStation allAstroids (thisAst:otherAst) bestStat numAst
     | otherwise = findBestMonitoringStation 
                     allAstroids otherAst bestStat numAst
     where 
-        numDetectAstThis = findNumDetectableAstroids allAstroids allAstroids thisAst 0 
+        numDetectAstThis = length $ findDetectableAstroids allAstroids allAstroids thisAst [] 
 
-findNumDetectableAstroids :: [(Int, Int)] -> [(Int, Int)] -> (Int, Int) -> Int -> Int
-findNumDetectableAstroids _ [] _ num = num 
-findNumDetectableAstroids allAstroids (thisAst:otherAst) monStat num
+findDetectableAstroids :: [(Int, Int)] -> [(Int, Int)] -> (Int, Int) -> [(Int, Int)] -> [(Int, Int)]
+findDetectableAstroids _ [] _ detAst = detAst 
+findDetectableAstroids allAstroids (thisAst:otherAst) monStat detAst
     | isBlocked allAstroids thisAst monStat = 
-        findNumDetectableAstroids allAstroids otherAst monStat num
-    | otherwise = findNumDetectableAstroids allAstroids otherAst monStat (num + 1)
+        findDetectableAstroids allAstroids otherAst monStat detAst
+    | otherwise = findDetectableAstroids allAstroids otherAst monStat (thisAst:detAst)
 
 isBlocked :: [(Int, Int)] -> (Int, Int) -> (Int, Int) -> Bool
 isBlocked (thisAst:otherAst) astroidA astroidB
