@@ -13,14 +13,11 @@ main = do
 compute :: [Int] -> Int -> Int -> [Int] -> [Int] -> [Int]
 compute program index relBIndex input output
     | opcode == 99 = output
-    | opcode == 1 = compute (replaceN program (instructions !! 3) add) 
+    | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) add relBIndex paraThreeMode) 
                         endIndex relBIndex input output
-    | opcode == 2 = compute (replaceN program (instructions !! 3) multiply) 
+    | opcode == 2 = compute (replaceNWithMode program (instructions !! 3) multiply relBIndex paraThreeMode) 
                         endIndex relBIndex input output
-    | opcode == 3 = if paraOneMode == 2 then 
-                    compute (replaceN program (relBIndex +  (instructions !! 1)) (head input)) 
-                        endIndex relBIndex (tail input) output
-                    else compute (replaceN program (instructions !! 1) (head input)) 
+    | opcode == 3 = compute (replaceNWithMode program (instructions !! 1) (head input) relBIndex paraOneMode) 
                         endIndex relBIndex (tail input) output
     | opcode == 4 = compute program endIndex relBIndex input 
                         ((takeWithMode program (instructions !! 1) relBIndex paraOneMode):output)
@@ -30,9 +27,9 @@ compute program index relBIndex input output
     | opcode == 6 = if (jumpVal  == 0) 
                         then compute program jumpToIndex  relBIndex input output
                         else compute program endIndex relBIndex input output
-    | opcode == 7 = compute (replaceN program (instructions !!3) lessThan) 
+    | opcode == 7 = compute (replaceNWithMode program (instructions !!3) lessThan relBIndex paraThreeMode) 
                         endIndex relBIndex input output
-    | opcode == 8 = compute (replaceN program (instructions !!3) equals) 
+    | opcode == 8 = compute (replaceNWithMode program (instructions !!3) equals relBIndex paraThreeMode) 
                         endIndex relBIndex input output
     | opcode == 9 = compute program endIndex (relBIndex + 
                         (takeWithMode program (instructions !! 1) relBIndex paraOneMode)) input output
@@ -62,6 +59,12 @@ takeWithMode program index relativeBaseIndex paraMode
     | paraMode == 0 = program !! index
     | paraMode == 1 = index
     | paraMode == 2 = program !! (index + relativeBaseIndex)
+
+replaceNWithMode :: [Int] -> Int -> Int -> Int -> Int -> [Int]
+replaceNWithMode list index newVal relativeBaseIndex paraMode
+    | paraMode == 0 = replaceN list index newVal
+    | paraMode == 1 = replaceN list index newVal
+    | paraMode == 2 = replaceN list (index + relativeBaseIndex) newVal
 
 replaceN :: [Int] -> Int -> Int -> [Int]
 replaceN (x:xs) n newVal
