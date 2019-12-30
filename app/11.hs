@@ -3,15 +3,13 @@ import Data.List.Split
 import Data.List
 import Data.Maybe
 import Control.Concurrent
+import Control.Concurrent.Async
 
 main :: IO ()
 main = do 
     handle <- openFile "data/input11.txt" ReadMode
     contents <- hGetContents handle
     let program = map read $ splitOn "," contents :: [Int]
-        -- output = reverse $ compute (program ++ [0,0..]) 0 0 [2] []
-    -- putStrLn $ "The output is: " 
-    --     ++ show output
     paint program
 
 paint :: [Int] -> IO ()
@@ -19,61 +17,60 @@ paint program = do
     computerInput <- newMVar 0
     painting <- newMVar []
     robotInstruction <- newEmptyMVar
-    forkIO $ compute (program ++ [0,0..]) 0 0 computerInput robotInstruction
-    forkIO $ driveRobot painting robotInstruction computerInput (0, 0) 1
-    forkIO $ printPainting painting
+    c <-  async $ compute (program ++ [0,0..]) 0 0 computerInput robotInstruction
+    d <- async $ driveRobot painting robotInstruction computerInput (0, 0) 1
     putStrLn $ "Started threads."
-    threadDelay 2000000
-    robInst <- takeMVar robotInstruction
-    putStrLn $ show robInst
+    waitBoth c d
+    putStrLn "Finished threads."
+    printPainting painting
+    putStrLn "Finished."
 
-printPainting :: MVar [((Int, Int), Int)] -> IO ()
+printPainting :: MVar [((Int, Int), Int)] -> IO [()]
 printPainting painting = do
     toPaint <- readMVar painting
-    let minX = minumumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
-        maxX = maximumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
-        width = abs (minumumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint) + 
-            abs $ maximumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
-        height = abs (minimumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint) +
-            abs $ maximumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
+    let minX = fst $ fst $ minimumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
+        minY = snd $ fst $ minimumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
+        -- maxX = fst $ fst $ maximumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
+        -- maxY = snd $ fst $ maximumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
+        -- width = abs minX + abs maxX
+        -- height = abs minY + abs maxY
         sortedPainting = map (sortBy (\((xa, _), _) ((xb, _), _) -> compare xa xb)) 
             $ groupBy (\((_, ya), _) ((_, yb), _) -> ya == yb) $ sortBy 
             (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
-        emptyCanvas = replicate height [replicate width ' ']
-    traverse putStrLn $ mapAccumL (mapAccumL (\x ((xPos, yPos), colour) -> 
+    traverse (putStrLn ) $ map (\row -> concat $ snd $ mapAccumL (\x ((xPos, yPos), colour) -> 
         if x == xPos then 
-            if colour == 1 then ['#' ]
-            else [' ']
-        else replicate (xPos - x) ' '
-            ) minX ) minY sortedPainting
-    threadDelay 1000000
-    printPainting painting    
+            if colour == 1 then (x + 1, "#")
+            else (x + 1, " ")
+        else (xPos + 1, replicate (abs (xPos - x)) ' ')) minX row) sortedPainting   
 
 driveRobot :: MVar [((Int, Int), Int)] -> MVar Int -> MVar Int -> (Int, Int) -> Int -> IO ()
 driveRobot painting instruction colour position direction =  do
-    colourToPaint <- takeMVar instruction
-    tempPainting <- takeMVar painting
-    let tempTempPainting = filter (\(pos, _) -> 
-            if pos /= position then True else False) tempPainting
-        tempTempTempPainting = insert (position, colourToPaint) tempTempPainting
-    putMVar painting tempTempTempPainting
     drivingInstruction <- takeMVar instruction
-    let newDirection = if drivingInstruction == 0 then (direction + 3) `mod` 4 
-        else (direction - 3) `mod` 4
-        newPos = case newDirection of
-            0 -> (fst position - 1, snd position)
-            1 -> (fst position, snd position + 1)
-            2 -> (fst position + 1, snd position)
-            3 -> (fst position, snd position - 1)
-        newColour = find (\elem -> if (fst elem) == newPos then True 
-            else False) tempTempTempPainting
-    if isJust newColour then putMVar colour $ snd $ fromJust newColour 
-    else putMVar colour 0 
-    driveRobot painting instruction colour newPos newDirection
+    if drivingInstruction == -1 then do putStrLn "Done driving" else do
+        colourToPaint <- takeMVar instruction
+        tempPainting <- takeMVar painting
+        let tempTempPainting = filter (\(pos, _) -> 
+                if pos /= position then True else False) tempPainting
+            tempTempTempPainting = insert (position, colourToPaint) tempTempPainting
+        putMVar painting tempTempTempPainting
+        let newDirection = if drivingInstruction == 0 then (direction + 3) `mod` 4 
+            else (direction - 3) `mod` 4
+            newPos = case newDirection of
+                0 -> (fst position - 1, snd position)
+                1 -> (fst position, snd position + 1)
+                2 -> (fst position + 1, snd position)
+                3 -> (fst position, snd position - 1)
+            newColour = find (\elem -> if (fst elem) == newPos then True 
+                else False) tempTempTempPainting
+        if isJust newColour then putMVar colour $ snd $ fromJust newColour 
+        else putMVar colour 0 
+        driveRobot painting instruction colour newPos newDirection
 
 compute :: [Int] -> Int -> Int -> MVar Int -> MVar Int -> IO ()
 compute program index relBIndex input output
-    | opcode == 99 = putStrLn "Done computing"
+    | opcode == 99 = do 
+        putMVar output (-1)
+        putStrLn "Done computing"
     | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) 
                         add relBIndex paraThreeMode) endIndex relBIndex input output
     | opcode == 2 = compute (replaceNWithMode program (instructions !! 3) 
@@ -147,4 +144,3 @@ setNumParas opcode
     | opcode == 7 = 3
     | opcode == 8 = 3
     | opcode == 9 = 1
-    

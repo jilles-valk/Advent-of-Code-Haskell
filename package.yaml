@@ -24,6 +24,7 @@ dependencies:
 - safe
 - split
 - containers
+- async
 
 library:
   source-dirs: src
