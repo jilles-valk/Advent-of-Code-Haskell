@@ -6,7 +6,7 @@ main = do
     handle <- openFile "data/input9.txt" ReadMode
     contents <- hGetContents handle
     let program = map read $ splitOn "," contents :: [Int]
-        output = reverse $ compute (program ++ [0,0..]) 0 0 [2] []
+        output = reverse $ compute (program ++ [0,0..]) 0 0 [1] []
     putStrLn $ "The output is: " 
         ++ show output
 

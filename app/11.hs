@@ -14,47 +14,46 @@ main = do
 
 paint :: [Int] -> IO ()
 paint program = do
-    computerInput <- newMVar 0
+    computerInput <- newMVar 1
     painting <- newMVar []
     robotInstruction <- newEmptyMVar
-    c <-  async $ compute (program ++ [0,0..]) 0 0 computerInput robotInstruction
+    c <- async $ compute (program ++ [0,0..]) 0 0 computerInput robotInstruction
     d <- async $ driveRobot painting robotInstruction computerInput (0, 0) 1
     putStrLn $ "Started threads."
     waitBoth c d
     putStrLn "Finished threads."
-    printPainting painting
+    p <- readMVar painting
+    putStrLn $ "The number of panels painted at least once is: " ++ show (length p)
+    printPainting p
     putStrLn "Finished."
 
-printPainting :: MVar [((Int, Int), Int)] -> IO [()]
+printPainting ::  [((Int, Int), Int)] -> IO [()]
 printPainting painting = do
-    toPaint <- readMVar painting
-    let minX = fst $ fst $ minimumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
-        minY = snd $ fst $ minimumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
-        -- maxX = fst $ fst $ maximumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
-        -- maxY = snd $ fst $ maximumBy (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
-        -- width = abs minX + abs maxX
-        -- height = abs minY + abs maxY
+    let toPaint = painting
+        minX = fst $ fst $ minimumBy (\((xa, _), _) ((xb, _), _) -> compare xa xb) toPaint
         sortedPainting = map (sortBy (\((xa, _), _) ((xb, _), _) -> compare xa xb)) 
             $ groupBy (\((_, ya), _) ((_, yb), _) -> ya == yb) $ sortBy 
-            (\((_, ya), _) ((_, yb), _) -> compare ya yb) toPaint
+            (\((_, ya), _) ((_, yb), _) -> compare yb ya) toPaint
     traverse (putStrLn ) $ map (\row -> concat $ snd $ mapAccumL (\x ((xPos, yPos), colour) -> 
         if x == xPos then 
             if colour == 1 then (x + 1, "#")
             else (x + 1, " ")
-        else (xPos + 1, replicate (abs (xPos - x)) ' ')) minX row) sortedPainting   
+        else (xPos + 1, replicate (abs (xPos - x)) ' ' ++ 
+            if colour == 1 then "#" else " "
+        )) minX row) sortedPainting   
 
 driveRobot :: MVar [((Int, Int), Int)] -> MVar Int -> MVar Int -> (Int, Int) -> Int -> IO ()
 driveRobot painting instruction colour position direction =  do
-    drivingInstruction <- takeMVar instruction
-    if drivingInstruction == -1 then do putStrLn "Done driving" else do
-        colourToPaint <- takeMVar instruction
+    colourToPaint <- takeMVar instruction
+    if colourToPaint == -1 then do putStrLn "Done driving" else do
+        drivingInstruction <- takeMVar instruction
         tempPainting <- takeMVar painting
         let tempTempPainting = filter (\(pos, _) -> 
                 if pos /= position then True else False) tempPainting
             tempTempTempPainting = insert (position, colourToPaint) tempTempPainting
         putMVar painting tempTempTempPainting
         let newDirection = if drivingInstruction == 0 then (direction + 3) `mod` 4 
-            else (direction - 3) `mod` 4
+                else (direction - 3) `mod` 4
             newPos = case newDirection of
                 0 -> (fst position - 1, snd position)
                 1 -> (fst position, snd position + 1)
