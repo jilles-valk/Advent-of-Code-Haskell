@@ -25,6 +25,7 @@ dependencies:
 - split
 - containers
 - async
+- blank-canvas
 
 library:
   source-dirs: src
@@ -131,6 +132,15 @@ executables:
     - AdventOfCode
   12-exe:
     main:                12.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
+  13-exe:
+    main:                13.hs
     source-dirs:         app
     ghc-options:
     - -threaded

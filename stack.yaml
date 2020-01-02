@@ -35,6 +35,8 @@ packages:
 # forks / in-progress versions pinned to a git hash. For example:
 #
 extra-deps:
+- blank-canvas-0.7@sha256:5161b0f68707ab11bb82de45bf744ef6a8f0aa057a1c7eeda4d66f9459875886,7885
+- kansas-comet-0.4@sha256:31ef8fdb7ca66fbff292f9b30a4e13bce38b1ce94bc78e9cb0bcf3999178d2e2,1737
 # - data-list-index
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git
