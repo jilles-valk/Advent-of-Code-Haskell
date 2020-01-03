@@ -6,62 +6,114 @@ import Data.List
 import Data.List.Split
 import Data.Maybe
 import Control.Concurrent
-import Control.Concurrent.Async
+-- import Control.Concurrent.Async
+import Data.Text as T (pack)
 
 main :: IO ()
 main = do 
     handle <- openFile "data/input13.txt" ReadMode
     contents <- hGetContents handle
     let program = map read $ splitOn "," contents :: [Int]
-    programIn <- newMVar 0
+    programIn <- newEmptyMVar
     programOut <- newMVar []
 
-    compute (program ++ [0,0..]) 0 0 programIn programOut
+    forkIO $ compute (program ++ [0,0..]) 0 0 programIn programOut
+    threadDelay (1000 * 1000) 
     instructions <- readMVar programOut
-    -- putStrLn $ show instructions
-    -- instructions <- newMVar [10, 20, 1, 50, 60, 2, 100, 300, 3, 200, 200, 4, 500, 500, 1]
-    blankCanvas 3000 $ \ context -> draw context $ reverse instructions
+    -- let instructions = reverse [-1, 0, 1]
+    putStrLn $ "The number of blocks is: " ++ show (countTypeObject instructions 2 0)
+    blankCanvas 3000  { events = ["keyup","keydown"] } $ \ context -> draw context programIn programOut
 
-draw :: DeviceContext -> [Int] -> IO ()
-draw context inst = do
-    -- tmpInst <- readMVar inst
-    let instructions = chunksOf 3 inst
+countTypeObject :: [Int] -> Int -> Int -> Int
+countTypeObject [] _ count = count
+countTypeObject (kind:_:_:instructions) isKind count = if isKind == kind 
+    then countTypeObject instructions isKind (count + 1) 
+    else countTypeObject instructions isKind count 
+
+draw :: DeviceContext -> MVar Int -> MVar [Int] ->  IO ()
+draw context programIn inst = do
+    putStrLn "Read insts"
+    tmpInst <- readMVar inst
+    let instructions = putNewBlocks (chunksOf 3 tmpInst) 30
+        w = width context
+        h = height context
+    putStrLn "Put insts"
+    -- putMVar inst (concat instructions)
+    putStrLn "Sending"
     send context $ do 
         clearCanvas
-        sequence_ [buildCanvas x y kind | (x:y:kind:_) <- instructions]
+        sequence_ [buildCanvas x y kind w h | (kind:y:x:_) <- instructions]
         stroke()
-        -- threadDelay (20 * 1000) 
+        
+    putStrLn "Waiting"
+    event <- wait context
+    print event
+    threadDelay (100 * 1000) 
+    putMVar programIn $ case (eType event, eWhich event) of
+        ("keydown", Just 37) -> -1
+        ("keydown", Just 39) -> 1
+        ("keyup", _) -> 0
+        ("keydown", _) -> 0
+    putStrLn "Set mvar"
+    threadDelay (100 * 1000) 
+    draw context programIn inst
 
 
-buildCanvas :: Int -> Int -> Int -> Canvas ()
-buildCanvas xI yI kind =
+buildCanvas :: Int -> Int -> Int -> Int -> Int -> Canvas ()
+buildCanvas xIn yIn kind w h
+    | xIn == (-1) && yIn == 0 = do
+        beginPath()
+        fillStyle "purple"
+        font "48px serif"
+        fillText(T.pack ("Score: " ++ show kind), fromIntegral (w `div` 2 - 100), 
+            fromIntegral (h `div` 2 + 200))
+        closePath()
+    | otherwise = 
         case kind of 
             0 -> do 
                 beginPath()
+                fillStyle "yellow"
+                rect (x, y, wBox, hBox)
+                closePath()
                 fill()
             1 -> do
                     beginPath()
-                    rect (x, y, 5, 5)
+                    fillStyle "brown"
+                    rect (x, y, wBox, hBox)
                     closePath()
                     fill()
             2 -> do
                     beginPath()
-                    rect (x, y, 10, 10)
+                    fillStyle "blue"
+                    rect (x, y, wBox, hBox)
                     closePath()
                     fill()
             3 -> do
                     beginPath()
-                    rect (x, y, 30, 10)
+                    fillStyle "orange"
+                    rect (x, y, wBox, hBox)
                     closePath()
                     fill()
             4 -> do
                     beginPath()
-                    arc (x, y, 10, 0, 2*pi, False)
+                    fillStyle "red"
+                    arc (x + r, y + r, r, 0, 2*pi, False)
                     closePath()
                     fill()
+    where
+        x = fromIntegral $ 50 + (w `div` 40) * xIn
+        y = fromIntegral $ 50 + (h `div` 40) * yIn
+        wBox = 20
+        hBox = 20
+        r = 10
+
+putNewBlocks :: [[Int]] -> Int -> [[Int]]
+putNewBlocks blocks 0 = blocks
+putNewBlocks (block:blocks) num = 
+    putNewBlocks (map (\(kCur:yCur:xCur:_) -> if xCur == x && yCur == y 
+        then [kind, y, x] else [kCur, yCur, xCur]) blocks) (num - 1)
     where 
-        x = 20 * (fromIntegral xI)
-        y = 20 * (fromIntegral yI)
+        (kind:y:x:_) = block
 
 compute :: [Int] -> Int -> Int -> MVar Int -> MVar [Int] -> IO ()
 compute program index relBIndex input output
@@ -77,7 +129,8 @@ compute program index relBIndex input output
         compute (replaceNWithMode program (instructions !! 1) inputFromMVar 
             relBIndex paraOneMode) endIndex relBIndex input output
     | opcode == 4 = do
-        oldOutput <- readMVar output
+        -- emptyOut <- isEmptyMVar output
+        -- if emptyOut then do putMVar output [(takeWithMode program (instructions !! 1) relBIndex paraOneMode)] else do
         modifyMVar_ output (\ oldVal -> return ((takeWithMode program (instructions !! 1) relBIndex paraOneMode):oldVal))
         compute program endIndex relBIndex input output
     | opcode == 5 = if (jumpVal /= 0) 
