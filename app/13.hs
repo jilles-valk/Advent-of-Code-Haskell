@@ -6,8 +6,6 @@ import Data.List
 import Data.List.Split
 import Data.Maybe
 import Control.Concurrent
--- import Control.Concurrent.Async
-import Data.Text as T (pack)
 
 main :: IO ()
 main = do 
@@ -20,7 +18,7 @@ main = do
     forkIO $ compute (program ++ [0,0..]) 0 0 programIn programOut waitingForInput
     threadDelay (3000 * 1000)
     bricks <- readMVar programOut
-    putStrLn $ "The number of blocks is at the start is: " ++ show (countTypeObject bricks 2 0)
+    putStrLn $ "The number of blocks at the start is: " ++ show (countTypeObject bricks 2 0)
     putStrLn "Computing final score, this might take a while..."
     finalScore <- playGame programIn programOut waitingForInput 18 0 0
     putStrLn $ "The final score: " ++ show finalScore
@@ -30,7 +28,7 @@ playGame computerIn computerOut waitingForInput paddlePos score waitingTime = do
     needsInput <- swapMVar waitingForInput False
     if not needsInput then do 
         threadDelay (100)
-        if waitingTime > 100 then do 
+        if waitingTime > 1000 then do 
             cOut <- takeMVar computerOut
             let (_, _, newScore) = playTurn cOut paddlePos (0, 0, 0)
             return newScore
@@ -44,77 +42,11 @@ playGame computerIn computerOut waitingForInput paddlePos score waitingTime = do
         if newScore > score then playGame computerIn computerOut waitingForInput newPaddlePos newScore 0
         else playGame computerIn computerOut waitingForInput newPaddlePos score 0
 
-
 countTypeObject :: [Int] -> Int -> Int -> Int
 countTypeObject [] _ count = count
 countTypeObject (kind:_:_:instructions) isKind count = if isKind == kind 
     then countTypeObject instructions isKind (count + 1) 
     else countTypeObject instructions isKind count 
-
-startUp:: [Int] -> DeviceContext -> MVar Int -> MVar [Int] -> MVar Bool -> IO()
-startUp program context programIn programOut waitingForInput = do
-    forkIO $ compute (program ++ [0,0..]) 0 0 programIn programOut waitingForInput
-    threadDelay (2000 * 1000) 
-    draw context programIn programOut 18 waitingForInput [[1]]
-
-draw :: DeviceContext -> MVar Int -> MVar [Int] -> Int -> MVar Bool -> [[Int]] ->  IO ()
-draw context programIn newBricks paddlePos waitingForInput mainBricks = do
-    needsInput <- swapMVar waitingForInput False
-    if not needsInput then do 
-        threadDelay (1000000)
-        putStrLn "Waiting"
-        draw context programIn newBricks paddlePos waitingForInput mainBricks
-    else do
-        -- putStrLn "Read insts"
-        -- tmpInst <- modifyMVar inst (\input -> return (input, take (4082 * 3) input))
-        tmpNewBricks <- readMVar newBricks
-        -- putMVar inst []
-        
-        let newBricksChunks = chunksOf 3 tmpNewBricks
-            updatedMainBricks = deleteBrokenBricks mainBricks newBricksChunks
-            w = width context
-            h = height context
-        putStrLn $ show newBricksChunks
-        -- putStrLn $ show instructions
-        -- putStrLn "Put insts"
-        -- putMVar inst $ concat $ reverse instructions
-        putStrLn "Sending"
-        send context $ do 
-            clearCanvas
-            sequence_ [buildCanvas x y kind w h | (kind:y:x:_) <- updatedMainBricks]
-            sequence_ [buildCanvas x y kind w h | (kind:y:x:_) <- newBricksChunks]
-            stroke()
-
-        putStrLn "Send"
-
-        let (paddleChange, ballPos, score) = playTurn tmpNewBricks paddlePos (0,0,0)
-            newPaddlePos = paddlePos + paddleChange
-        -- putStrLn "after"
-        putStrLn $ "paddleChange: " ++ show paddleChange
-        putStrLn $ "paddle: " ++ show newPaddlePos
-        putStrLn $ "ball: " ++ show ballPos
-        putStrLn $ "score: " ++ show score
-
-
-        -- putStrLn "about to set pin"
-        putMVar programIn paddleChange
-        -- putStrLn "Waiting"
-        -- event <- wait context
-        -- print event
-        
-        -- putMVar programIn $ case (eType event, eWhich event) of
-        --     ("keydown", Just 37) -> -1
-        --     ("keydown", Just 39) -> 1
-        --     ("keyup", _) -> 0
-        --     ("keydown", _) -> 0
-        -- threadDelay (1000 * 1000) 
-        draw context programIn newBricks newPaddlePos waitingForInput updatedMainBricks
-
-deleteBrokenBricks :: [[Int]] -> [[Int]] -> [[Int]]
-deleteBrokenBricks mainBricks [] = mainBricks
-deleteBrokenBricks [] _ = []
-deleteBrokenBricks mainBricks ([k, y, x]:newBricks) = deleteBrokenBricks (map (\[mK, mY, mX] -> 
-     if k == 0 && mY == y && mX == x then [k, y, x] else [mK, mY, mX]) mainBricks) newBricks
         
 playTurn :: [Int] -> Int -> (Int, Int, Int) -> (Int, Int, Int)
 playTurn [] _ output = output
@@ -130,70 +62,10 @@ playTurn (kind:y:x:blocks) paddlePos output = do
             else (oldJoystickPos, oldBallPos)
         newScore = if oldScore == 0 && x == (-1) && y == 0 then kind else oldScore
     playTurn blocks paddlePos (newJoystickPos, newBallPos, newScore)
-    
-
-
-buildCanvas :: Int -> Int -> Int -> Int -> Int -> Canvas ()
-buildCanvas xIn yIn kind w h
-    | xIn == (-1) && yIn == 0 = do
-        beginPath()
-        fillStyle "purple"
-        font "48px serif"
-        fillText(T.pack ("Score: " ++ show kind), fromIntegral (w `div` 2 - 100), 
-            fromIntegral (h `div` 2 + 200))
-        closePath()
-    | otherwise = 
-        case kind of 
-            0 -> do 
-                beginPath()
-                fillStyle "yellow"
-                rect (x, y, wBox, hBox)
-                closePath()
-                fill()
-            1 -> do
-                    beginPath()
-                    fillStyle "brown"
-                    rect (x, y, wBox, hBox)
-                    closePath()
-                    fill()
-            2 -> do
-                    beginPath()
-                    fillStyle "blue"
-                    rect (x, y, wBox, hBox)
-                    closePath()
-                    fill()
-            3 -> do
-                    beginPath()
-                    fillStyle "orange"
-                    rect (x, y, wBox, hBox)
-                    closePath()
-                    fill()
-            4 -> do
-                    beginPath()
-                    fillStyle "red"
-                    arc (x + r, y + r, r, 0, 2*pi, False)
-                    closePath()
-                    fill()
-    where
-        x = fromIntegral $ 50 + (w `div` 40) * xIn
-        y = fromIntegral $ 50 + (h `div` 40) * yIn
-        wBox = 20
-        hBox = 20
-        r = 10
-
-putNewBlocks :: [[Int]] -> Int -> [[Int]]
-putNewBlocks blocks 0 = blocks
-putNewBlocks blocks 1082 = blocks
-putNewBlocks (block:blocks) num = 
-    putNewBlocks (map (\(kCur:yCur:xCur:_) -> if xCur == x && yCur == y 
-        then [kind, y, x] else [kCur, yCur, xCur]) blocks) (num - 1)
-    where 
-        (kind:y:x:_) = block
 
 compute :: [Int] -> Int -> Int -> MVar Int -> MVar [Int] -> MVar Bool -> IO ()
 compute program index relBIndex input output waitingForInput
     | opcode == 99 = do 
-        -- putMVar output [(-1)]
         putStrLn "Done computing"
     | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) 
                         add relBIndex paraThreeMode) endIndex relBIndex input output waitingForInput
@@ -206,8 +78,6 @@ compute program index relBIndex input output waitingForInput
         compute (replaceNWithMode program (instructions !! 1) inputFromMVar 
             relBIndex paraOneMode) endIndex relBIndex input output waitingForInput
     | opcode == 4 = do
-        -- emptyOut <- isEmptyMVar output
-        -- if emptyOut then do putMVar output [(takeWithMode program (instructions !! 1) relBIndex paraOneMode)] else do
         modifyMVar_ output (\ oldVal -> return ((takeWithMode program (instructions !! 1) relBIndex paraOneMode):oldVal))
         compute program endIndex relBIndex input output waitingForInput
     | opcode == 5 = if (jumpVal /= 0) 
