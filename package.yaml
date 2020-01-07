@@ -27,6 +27,7 @@ dependencies:
 - async
 - blank-canvas
 - text
+- fraction
 
 library:
   source-dirs: src
@@ -142,6 +143,15 @@ executables:
     - AdventOfCode
   13-exe:
     main:                13.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AdventOfCode
+  14-exe:
+    main:                14.hs
     source-dirs:         app
     ghc-options:
     - -threaded

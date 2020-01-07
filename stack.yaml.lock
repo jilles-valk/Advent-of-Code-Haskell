@@ -18,6 +18,13 @@ packages:
       sha256: 2229d669ca7b215e2a6bd08219a61d780d792e0c5f998eb59821331ab85c3b2f
   original:
     hackage: kansas-comet-0.4@sha256:31ef8fdb7ca66fbff292f9b30a4e13bce38b1ce94bc78e9cb0bcf3999178d2e2,1737
+- completed:
+    hackage: fraction-0.1.0.6@sha256:06248ea9902efa0744d0491ab0e28a79acb2df9785a285aef0372ab08353019d,1194
+    pantry-tree:
+      size: 214
+      sha256: 90f0a9dc00d2d1e2fdedc566e348d537b8ffc86a0c8b7faaad5cfc67414af5e7
+  original:
+    hackage: fraction-0.1.0.6@sha256:06248ea9902efa0744d0491ab0e28a79acb2df9785a285aef0372ab08353019d,1194
 snapshots:
 - completed:
     size: 524804
