@@ -10,62 +10,64 @@ main = do
     handle <- openFile "data/input14.txt" ReadMode
     inputMap <- makeMap handle Map.empty
     let keyMap = makeKeyMap inputMap
-        tree = unfoldTree (\key -> (key, makeChildNodes key inputMap)) (1, "FUEL")
-        deltas = Map.toList $ foldTree (\node nodeResults -> makeDeltaMap node nodeResults inputMap) tree
+        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (1, "FUEL")
+        deltas = foldTree (\node nodeResults -> makeDeltaMap node nodeResults keyMap inputMap) tree
+        reducedDeltas = reduceAll deltas Map.empty keyMap inputMap
         totalOreTree = totalOfKeyInTree tree "ORE"
-        totalOre = calcTotal deltas keyMap inputMap totalOreTree 0
-    putStrLn "The equations in a tree that are to be solved: \r\n"
-    putStrLn $ drawTree $ fmap show $ tree
+        totalOre = totalOreTree - (reducedDeltas Map.! "ORE")
     putStrLn $ "The minimum number of ORE required is: " ++ show totalOre
-    putStrLn $ show deltas
-    putStrLn $ show totalOreTree
-    putStrLn $ show totalOre
 
-calcTotal :: [(String, Int)] -> Map.Map String (Int, String) -> 
-             Map.Map (Int, String) [(Int, String)] -> Int -> Int -> Int
-calcTotal [] _ _ totalOreTree totalSaved = totalOreTree - totalSaved
-calcTotal (delta:deltas) keyMap inputMap totalOreTree totalSaved = 
-    calcTotal deltas keyMap inputMap totalOreTree (totalSaved + 
-        calcNumKeySaved delta keyMap inputMap "ORE")
+reduceAll :: Map.Map String Int -> Map.Map String Int -> Map.Map String (Int, String) -> 
+             Map.Map (Int, String) [(Int, String)] -> Map.Map String Int
+reduceAll thisDeltas previousDeltas keyMap inputMap 
+    | thisDeltas == previousDeltas = thisDeltas
+    | otherwise = reduceAll (Map.foldlWithKey (\accMap key val -> Map.unionWith (+) 
+        (reduceDelta (key, val) keyMap inputMap) accMap) Map.empty thisDeltas) thisDeltas keyMap inputMap
 
-calcNumKeySaved :: (String, Int) -> Map.Map String (Int, String) -> 
-             Map.Map (Int, String) [(Int, String)] -> String -> Int
-calcNumKeySaved delta keyMap inputMap key = do
-    let timesDelta = (snd delta) `div` (fst $ keyMap Map.! (fst delta))
-    if timesDelta < 1 then 0
+reduceDelta :: (String, Int) -> Map.Map String (Int, String) -> 
+                Map.Map (Int, String) [(Int, String)] -> Map.Map String Int
+reduceDelta delta keyMap inputMap = do
+    if Map.notMember (fst delta) keyMap then Map.singleton (fst delta) (snd delta)
     else do
-        let results = inputMap Map.! (keyMap Map.! (fst delta))
-            maybeKey = find (\(num, name) -> name == key) results 
-        if isJust maybeKey then (snd delta) - (snd delta `mod` (fst $ fromJust maybeKey)) -- !
+        let keyForDelta = keyMap Map.! fst delta
+            timesDelta = (snd delta) `div` (fst keyForDelta)
+        if timesDelta < 1 then Map.singleton (fst delta) (snd delta)
         else do 
-            sum $ map (\(num, name) -> calcNumKeySaved (name, num * timesDelta) keyMap inputMap key) results 
+            let results = inputMap Map.! keyForDelta
+            if not $ null results then do
+                let newDelta = (fst delta, (snd delta `mod` fst keyForDelta))
+                Map.fromList (newDelta:(map (\(num, name) -> (name, timesDelta * num)) results))
+            else Map.singleton (fst delta) (snd delta)
 
-makeDeltaMap :: (Int, String) -> [Map.Map String Int] -> Map.Map (Int, String) [(Int, String)] -> 
-    Map.Map String Int
-makeDeltaMap node nodeResults inputMap = do 
-    if Map.member node inputMap then Map.unionsWith (+) (nodeResults)
-    else do 
-        let maybeKey = find (\(num, name) -> name == snd node) $ Map.keys inputMap
-            nodeVal = fst node
-            actualVal = fst $ fromJust maybeKey
-        if isNothing maybeKey then Map.unionsWith (+) (nodeResults)
-            else Map.unionsWith (+) 
-                ((Map.singleton (snd node) (if floor (fromIntegral nodeVal / fromIntegral actualVal) == 
-                    ceiling (fromIntegral nodeVal / fromIntegral actualVal) then 0 
-                    else actualVal `mod` nodeVal)):nodeResults)
+makeDeltaMap :: (Int, String) -> [Map.Map String Int] -> Map.Map String (Int, String) -> 
+                Map.Map (Int, String) [(Int, String)] -> Map.Map String Int
+makeDeltaMap node nodeResults keyMap inputMap = do
+    if Map.notMember (snd node) keyMap then Map.empty
+    else if Map.member node inputMap then Map.unionsWith (+) (nodeResults)
+        else do 
+            let key = keyMap Map.! (snd node)
+                nodeVal = fst node
+                actualVal = fst key
+            Map.unionsWith (+) 
+                ((Map.singleton (snd node) 
+                ((ceiling (fromIntegral nodeVal / fromIntegral actualVal) * (fromIntegral actualVal)) - nodeVal))
+                :nodeResults)
 
 totalOfKeyInTree :: Tree (Int, String) -> String -> Int
 totalOfKeyInTree tree kind = foldTree (\(num, name) nodeResults -> 
     if name == kind then sum (num:nodeResults) else sum nodeResults) tree
 
-makeChildNodes :: (Int, String) -> Map.Map (Int, String) [(Int, String)] -> [(Int, String)]
-makeChildNodes key inputMap = do
+makeChildNodes :: (Int, String) -> Map.Map String (Int, String) -> Map.Map (Int, String) [(Int, String)] -> 
+                [(Int, String)]
+makeChildNodes key keyMap inputMap = do
     if Map.member key inputMap then inputMap Map.! key 
     else do
         let maybeKey = find (\(num, name) -> name == snd key) $ Map.keys inputMap
-        if isNothing maybeKey then []
-        else map (\(num, name) -> (num * (ceiling (fromIntegral (fst key) / fromIntegral (fst $ fromJust maybeKey))), name))
-            $ inputMap Map.! (fromJust maybeKey)
+        if Map.notMember (snd key) keyMap then []
+        else do 
+            let actualKey = keyMap Map.! snd key
+            map (\(num, name) -> (num * (ceiling (fromIntegral (fst key) / fromIntegral (fst $ actualKey))), name))
+                $ inputMap Map.! actualKey
 
 makeMap :: Handle -> Map.Map (Int, String) [(Int, String)] -> IO (Map.Map (Int, String) [(Int, String)])
 makeMap handle accMap = do
