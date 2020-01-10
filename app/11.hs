@@ -4,24 +4,29 @@ import Data.List
 import Data.Maybe
 import Control.Concurrent
 import Control.Concurrent.Async
+import System.CPUTime
+import qualified Data.Vector as Vec
 
 main :: IO ()
 main = do 
     handle <- openFile "data/input11.txt" ReadMode
     contents <- hGetContents handle
-    let program = map read $ splitOn "," contents :: [Int]
+    let program = Vec.fromList $ map read $ splitOn "," contents :: Vec.Vector Int
     paint program
 
-paint :: [Int] -> IO ()
+paint :: Vec.Vector Int -> IO ()
 paint program = do
     computerInput <- newMVar 1
     painting <- newMVar []
     robotInstruction <- newEmptyMVar
-    c <- async $ compute (program ++ [0,0..]) 0 0 computerInput robotInstruction
+    startTime <- getCPUTime
+    c <- async $ compute (program Vec.++ Vec.replicate 1000 0) 0 0 computerInput robotInstruction
     d <- async $ driveRobot painting robotInstruction computerInput (0, 0) 1
     putStrLn $ "Started threads."
     waitBoth c d
-    putStrLn "Finished threads."
+    endTime <- getCPUTime
+    let timeTaken = (fromIntegral (endTime - startTime)) / (10^12)
+    putStrLn $ "Finished threads in " ++ show timeTaken ++ " seconds."
     p <- readMVar painting
     putStrLn $ "The number of panels painted at least once is: " ++ show (length p)
     printPainting p
@@ -65,21 +70,21 @@ driveRobot painting instruction colour position direction =  do
         else putMVar colour 0 
         driveRobot painting instruction colour newPos newDirection
 
-compute :: [Int] -> Int -> Int -> MVar Int -> MVar Int -> IO ()
+compute :: Vec.Vector Int -> Int -> Int -> MVar Int -> MVar Int -> IO ()
 compute program index relBIndex input output
     | opcode == 99 = do 
         putMVar output (-1)
         putStrLn "Done computing"
-    | opcode == 1 = compute (replaceNWithMode program (instructions !! 3) 
+    | opcode == 1 = compute (replaceNWithMode program (instructions Vec.! 3) 
                         add relBIndex paraThreeMode) endIndex relBIndex input output
-    | opcode == 2 = compute (replaceNWithMode program (instructions !! 3) 
+    | opcode == 2 = compute (replaceNWithMode program (instructions Vec.! 3) 
                         multiply relBIndex paraThreeMode) endIndex relBIndex input output
     | opcode == 3 = do
         inputFromMVar <- takeMVar input
-        compute (replaceNWithMode program (instructions !! 1) inputFromMVar 
+        compute (replaceNWithMode program (instructions Vec.! 1) inputFromMVar 
             relBIndex paraOneMode) endIndex relBIndex input output
     | opcode == 4 = do
-        putMVar output (takeWithMode program (instructions !! 1) relBIndex paraOneMode)
+        putMVar output (takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode)
         compute program endIndex relBIndex input output
     | opcode == 5 = if (jumpVal /= 0) 
                         then compute program jumpToIndex relBIndex input output
@@ -87,49 +92,45 @@ compute program index relBIndex input output
     | opcode == 6 = if (jumpVal  == 0) 
                         then compute program jumpToIndex  relBIndex input output
                         else compute program endIndex relBIndex input output
-    | opcode == 7 = compute (replaceNWithMode program (instructions !!3) lessThan 
+    | opcode == 7 = compute (replaceNWithMode program (instructions Vec.! 3) lessThan 
                         relBIndex paraThreeMode) endIndex relBIndex input output
-    | opcode == 8 = compute (replaceNWithMode program (instructions !!3) equals relBIndex paraThreeMode) 
+    | opcode == 8 = compute (replaceNWithMode program (instructions Vec.! 3) equals relBIndex paraThreeMode) 
                         endIndex relBIndex input output
     | opcode == 9 = compute program endIndex (relBIndex + 
-                        (takeWithMode program (instructions !! 1) relBIndex paraOneMode)) input output
+                        (takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode)) input output
     where 
-        programWODone = drop index program
-        paraOpt = head programWODone
+        programWODone = Vec.drop index program
+        paraOpt = Vec.head programWODone
         opcode = paraOpt `mod` 100
         paraOneMode = paraOpt `div` 100 `mod` 10
         paraTwoMode = paraOpt `div` 1000 `mod` 10
         paraThreeMode = paraOpt `div` 10000 `mod` 10
         numParas = setNumParas opcode
         endIndex = index + numParas + 1
-        instructions = take (numParas + 1) programWODone 
-        add = (takeWithMode program (instructions !! 1) relBIndex paraOneMode) + 
-              (takeWithMode program (instructions !! 2) relBIndex paraTwoMode)
-        multiply = (takeWithMode program (instructions !! 1) relBIndex paraOneMode) * 
-                   (takeWithMode program (instructions !! 2) relBIndex paraTwoMode)
-        jumpVal = (takeWithMode program (instructions !! 1) relBIndex paraOneMode)
-        jumpToIndex = (takeWithMode program (instructions !! 2) relBIndex paraTwoMode)
-        lessThan = if ((takeWithMode program (instructions !! 1) relBIndex paraOneMode) < 
-                       (takeWithMode program (instructions !! 2) relBIndex paraTwoMode)) then 1 else 0
-        equals = if ((takeWithMode program (instructions !! 1) relBIndex paraOneMode) ==
-                      (takeWithMode program (instructions !! 2) relBIndex paraTwoMode)) then 1 else 0
+        instructions = Vec.take (numParas + 1) programWODone 
+        add = (takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode) + 
+              (takeWithMode program (instructions Vec.! 2) relBIndex paraTwoMode)
+        multiply = (takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode) * 
+                   (takeWithMode program (instructions Vec.! 2) relBIndex paraTwoMode)
+        jumpVal = (takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode)
+        jumpToIndex = (takeWithMode program (instructions Vec.! 2) relBIndex paraTwoMode)
+        lessThan = if ((takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode) < 
+                       (takeWithMode program (instructions Vec.! 2) relBIndex paraTwoMode)) then 1 else 0
+        equals = if ((takeWithMode program (instructions Vec.! 1) relBIndex paraOneMode) ==
+                      (takeWithMode program (instructions Vec.! 2) relBIndex paraTwoMode)) then 1 else 0
         
-takeWithMode :: [Int] -> Int -> Int -> Int -> Int
+takeWithMode :: Vec.Vector Int -> Int -> Int -> Int -> Int
 takeWithMode program index relativeBaseIndex paraMode 
-    | paraMode == 0 = program !! index
+    | paraMode == 0 = program Vec.! index
     | paraMode == 1 = index
-    | paraMode == 2 = program !! (index + relativeBaseIndex)
+    | paraMode == 2 = program Vec.! (index + relativeBaseIndex)
 
-replaceNWithMode :: [Int] -> Int -> Int -> Int -> Int -> [Int]
-replaceNWithMode list index newVal relativeBaseIndex paraMode
-    | paraMode == 0 = replaceN list index newVal
-    | paraMode == 1 = replaceN list index newVal
-    | paraMode == 2 = replaceN list (index + relativeBaseIndex) newVal
+replaceNWithMode :: Vec.Vector Int -> Int -> Int -> Int -> Int -> Vec.Vector Int
+replaceNWithMode vector index newVal relativeBaseIndex paraMode
+    | paraMode == 0 = vector Vec.// [(index, newVal)]
+    | paraMode == 1 = vector Vec.// [(index, newVal)]
+    | paraMode == 2 = vector Vec.// [((index + relativeBaseIndex), newVal)]
 
-replaceN :: [a] -> Int -> a -> [a]
-replaceN (x:xs) n newVal
-    | n == 0 = newVal:xs
-    | otherwise = x: replaceN xs (n-1) newVal
 
 setNumParas :: Int -> Int
 setNumParas opcode

@@ -10,9 +10,9 @@ main = do
     handle <- openFile "data/input14.txt" ReadMode
     inputMap <- makeMap handle Map.empty
     let keyMap = makeKeyMap inputMap
-        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (460665, "FUEL")
+        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (1, "FUEL")
         totalOre = calcTotal tree keyMap inputMap "ORE"
-    putStrLn $ "The minimum number of ORE required is: " ++ show totalOre
+    putStrLn $ "The minimum number of ORE for 1 FUEL required is: " ++ show totalOre
     let fuelForOneTrillion = maxFuelForSomeOre keyMap inputMap (0, 0) 1000000000000
     putStrLn $ "The maximum amount of fuel for 1000000000000 units of ore is: " ++ show fuelForOneTrillion
 

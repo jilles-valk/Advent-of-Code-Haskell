@@ -26,8 +26,8 @@ dependencies:
 - containers
 - async
 - blank-canvas
-- text
 - fraction
+- vector
 
 library:
   source-dirs: src
