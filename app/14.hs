@@ -10,12 +10,31 @@ main = do
     handle <- openFile "data/input14.txt" ReadMode
     inputMap <- makeMap handle Map.empty
     let keyMap = makeKeyMap inputMap
-        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (1, "FUEL")
-        deltas = foldTree (\node nodeResults -> makeDeltaMap node nodeResults keyMap inputMap) tree
-        reducedDeltas = reduceAll deltas Map.empty keyMap inputMap
-        totalOreTree = totalOfKeyInTree tree "ORE"
-        totalOre = totalOreTree - (reducedDeltas Map.! "ORE")
+        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (460665, "FUEL")
+        totalOre = calcTotal tree keyMap inputMap "ORE"
     putStrLn $ "The minimum number of ORE required is: " ++ show totalOre
+    let fuelForOneTrillion = maxFuelForSomeOre keyMap inputMap (0, 0) 1000000000000
+    putStrLn $ "The maximum amount of fuel for 1000000000000 units of ore is: " ++ show fuelForOneTrillion
+
+maxFuelForSomeOre :: Map.Map String (Int, String) -> Map.Map (Int, String) [(Int, String)] -> 
+                    (Int, Int) -> Int -> Int
+maxFuelForSomeOre keyMap inputMap (fuel, ore) someOre = do
+    let treeOne = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (fuel - 1, "FUEL")
+        treeTwo = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (fuel + 1, "FUEL")
+        derivOre = (calcTotal treeTwo keyMap inputMap "ORE") - (calcTotal treeOne keyMap inputMap "ORE")
+        newFuelAmount = round $ (fromIntegral fuel) - (fromIntegral (ore - someOre) / fromIntegral derivOre)
+        tree = unfoldTree (\key -> (key, makeChildNodes key keyMap inputMap)) (newFuelAmount, "FUEL")
+        newOreAmount = calcTotal tree keyMap inputMap "ORE"
+    if abs (newFuelAmount - fuel) < 1 then newFuelAmount 
+    else maxFuelForSomeOre keyMap inputMap (newFuelAmount, newOreAmount) someOre
+
+calcTotal :: Tree (Int, String) -> Map.Map String (Int, String) -> Map.Map (Int, String) [(Int, String)] -> 
+             String -> Int
+calcTotal tree keyMap inputMap key = do
+    let deltas = foldTree (\node nodeResults -> makeDeltaMap node nodeResults keyMap inputMap) tree
+        reducedDeltas = reduceAll deltas Map.empty keyMap inputMap
+        totalOreTree = totalOfKeyInTree tree key
+    totalOreTree - (reducedDeltas Map.! key)
 
 reduceAll :: Map.Map String Int -> Map.Map String Int -> Map.Map String (Int, String) -> 
              Map.Map (Int, String) [(Int, String)] -> Map.Map String Int
